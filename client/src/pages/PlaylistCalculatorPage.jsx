@@ -19,6 +19,7 @@ export default function PlaylistCalculatorPage() {
     setPlaylistData,
     selectedSpeed,
     setSelectedSpeed,
+    addRecentSearch,
   } = useApp();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -32,6 +33,16 @@ export default function PlaylistCalculatorPage() {
     try {
       const data = await fetchPlaylist(inputUrl);
       setPlaylistData(data);
+      if (data && (data.playlistId || data.id)) {
+        addRecentSearch({
+          id: data.playlistId || data.id,
+          title: data.title,
+          channelTitle: data.channelTitle,
+          totalVideosCount: data.totalVideosCount,
+          totalDurationSeconds: data.totalDurationSeconds,
+          url: inputUrl,
+        });
+      }
       setTimeout(() => {
         document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
       }, 100);

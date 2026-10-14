@@ -99,7 +99,8 @@ export default async function playlistRoutes(fastify, options) {
     }
 
     try {
-      const channelResult = await fetchChannelAnalytics(identifier, apiKey);
+      const maxVideos = Math.min(500, Math.max(10, parseInt(request.query.maxVideos || request.query.limit, 10) || 100));
+      const channelResult = await fetchChannelAnalytics(identifier, apiKey, maxVideos);
       return {
         success: true,
         isSample: false,

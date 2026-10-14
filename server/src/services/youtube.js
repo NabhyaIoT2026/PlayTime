@@ -96,6 +96,7 @@ export async function fetchPlaylistDetails(playlistId, apiKey) {
   const videoEntries = rawItems.map((item, index) => {
     const videoId = item.contentDetails?.videoId || item.snippet?.resourceId?.videoId;
     const title = item.snippet?.title || '';
+    const description = item.snippet?.description || '';
     const isPrivateOrDeleted = 
       title === 'Private video' || 
       title === 'Deleted video' || 
@@ -106,6 +107,7 @@ export async function fetchPlaylistDetails(playlistId, apiKey) {
       position: item.snippet?.position !== undefined ? item.snippet.position + 1 : index + 1,
       videoId,
       title,
+      description,
       channelTitle: item.snippet?.videoOwnerChannelTitle || item.snippet?.channelTitle || '',
       publishedAt: item.snippet?.publishedAt,
       thumbnail:
@@ -202,6 +204,7 @@ export async function fetchPlaylistDetails(playlistId, apiKey) {
       position: entry.position,
       title: details.snippet?.title || entry.title,
       channelTitle: details.snippet?.channelTitle || entry.channelTitle,
+      description: details.snippet?.description || entry.description || '',
       durationSeconds,
       durationIso,
       thumbnail:
@@ -239,7 +242,7 @@ export async function fetchPlaylistDetails(playlistId, apiKey) {
  * @param {string} apiKey
  * @returns {Promise<object>}
  */
-export async function fetchChannelAnalytics(identifier, apiKey) {
+export async function fetchChannelAnalytics(identifier, apiKey, maxVideos = 100) {
   if (!apiKey) {
     const error = new Error('YouTube API Key is not configured on the server.');
     error.statusCode = 503;
@@ -300,35 +303,53 @@ export async function fetchChannelAnalytics(identifier, apiKey) {
     throw error;
   }
 
-  // 2. Fetch recent uploads from the uploads playlist (up to 50 videos)
+  // 2. Fetch uploads with pagination up to maxVideos (e.g. 50, 100, 200, 500)
+  const targetCount = Math.min(500, Math.max(10, Number(maxVideos) || 100));
   let playlistItems = [];
-  try {
-    const plRes = await axios.get(`${YOUTUBE_API_BASE}/playlistItems`, {
-      params: {
-        part: 'snippet,contentDetails',
-        maxResults: 50,
-        playlistId: uploadsPlaylistId,
-        key: apiKey,
-      },
-      timeout: 12000,
-    });
-    playlistItems = plRes.data.items || [];
-  } catch (err) {
-    handleAxiosError(err, 'Failed to fetch channel video list');
-  }
+  let nextPageToken = null;
+  let pageCount = 0;
+  const maxPages = Math.ceil(targetCount / 50);
+
+  do {
+    pageCount++;
+    try {
+      const plRes = await axios.get(`${YOUTUBE_API_BASE}/playlistItems`, {
+        params: {
+          part: 'snippet,contentDetails',
+          maxResults: 50,
+          playlistId: uploadsPlaylistId,
+          pageToken: nextPageToken || undefined,
+          key: apiKey,
+        },
+        timeout: 12000,
+      });
+      const items = plRes.data.items || [];
+      playlistItems.push(...items);
+      nextPageToken = plRes.data.nextPageToken;
+    } catch (err) {
+      handleAxiosError(err, 'Failed to fetch channel video list');
+      break;
+    }
+  } while (nextPageToken && playlistItems.length < targetCount && pageCount < maxPages);
+
+  // Slice down to exact requested target
+  playlistItems = playlistItems.slice(0, targetCount);
 
   const videoIds = playlistItems
     .map((item) => item.contentDetails?.videoId || item.snippet?.resourceId?.videoId)
     .filter(Boolean);
 
-  // 3. Batch fetch video statistics, duration, and full snippet descriptions
+  // 3. Batch fetch video statistics, duration, and full snippet descriptions in chunks of 50
   const videoDetailsMap = new Map();
-  if (videoIds.length > 0) {
+  const CHUNK_SIZE = 50;
+
+  for (let i = 0; i < videoIds.length; i += CHUNK_SIZE) {
+    const chunkIds = videoIds.slice(i, i + CHUNK_SIZE);
     try {
       const vidsRes = await axios.get(`${YOUTUBE_API_BASE}/videos`, {
         params: {
           part: 'snippet,contentDetails,statistics',
-          id: videoIds.join(','),
+          id: chunkIds.join(','),
           key: apiKey,
         },
         timeout: 12000,

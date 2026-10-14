@@ -191,3 +191,55 @@ describe('Playback Speed Calculations', () => {
     expect(stats.percentSaved).toBe(0);
   });
 });
+
+describe('Calendar & Study Plan Export', () => {
+  it('generates standard RFC 5545 iCalendar (.ics) content', async () => {
+    const { generateIcsContent } = await import('../client/src/utils/calendarExport.js');
+    const ics = generateIcsContent({
+      title: 'Python Mastery',
+      startDate: new Date('2026-11-01T00:00:00'),
+      daysNeeded: 5,
+      dailyMinutes: 60,
+      selectedSpeed: 1.5,
+    });
+
+    expect(ics).toContain('BEGIN:VCALENDAR');
+    expect(ics).toContain('END:VCALENDAR');
+    expect(ics).toContain('SUMMARY:Playtime Study: Python Mastery (Day 1/5)');
+    expect(ics).toContain('SUMMARY:Playtime Study: Python Mastery (Day 5/5)');
+    expect(ics).toContain('1.5× speed');
+  });
+
+  it('generates correct Google Calendar web URL', async () => {
+    const { createGoogleCalendarUrl } = await import('../client/src/utils/calendarExport.js');
+    const url = createGoogleCalendarUrl({
+      title: 'React Fundamentals',
+      startDate: new Date('2026-11-01T00:00:00'),
+      dailyMinutes: 45,
+      selectedSpeed: 2.0,
+      daysNeeded: 7,
+    });
+
+    expect(url).toContain('https://calendar.google.com/calendar/render?action=TEMPLATE');
+    expect(url).toContain('React%20Fundamentals');
+    expect(url).toContain('RRULE%3AFREQ%3DDAILY%3BCOUNT%3D7');
+  });
+
+  it('generates Notion and Markdown checklists with checkboxes and links', async () => {
+    const { generateStudyMarkdown } = await import('../client/src/utils/calendarExport.js');
+    const md = generateStudyMarkdown({
+      playlistTitle: 'TypeScript Deep Dive',
+      videos: [
+        { id: 'abc123xyz', position: 1, title: 'Intro to TS', durationSeconds: 600 },
+        { id: 'def456uvw', position: 2, title: 'Generics', durationSeconds: 1200 },
+      ],
+      selectedSpeed: 1.5,
+      plan: { dailyMinutes: 30, daysNeeded: 3 },
+    });
+
+    expect(md).toContain('# 📚 Study Plan: TypeScript Deep Dive');
+    expect(md).toContain('- [ ] **#1** Intro to TS — `10:00` (@ 1.5×: 6:40) ([Watch](https://www.youtube.com/watch?v=abc123xyz))');
+    expect(md).toContain('- [ ] **#2** Generics — `20:00` (@ 1.5×: 13:20) ([Watch](https://www.youtube.com/watch?v=def456uvw))');
+  });
+});
+

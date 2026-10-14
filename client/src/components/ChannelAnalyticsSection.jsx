@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   FileSearch,
+  FileText,
 } from 'lucide-react';
 import { fetchChannelAnalytics, getSampleChannel } from '../services/api.js';
 import { formatClockTime } from '../utils/calculations.js';
@@ -38,14 +39,26 @@ function formatNumber(num) {
   return n.toLocaleString();
 }
 
+// Snippet helper for highlighting description query matches
+function getHighlightSnippet(text, query) {
+  if (!text || !query.trim()) return null;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return null;
+  const start = Math.max(0, idx - 40);
+  const end = Math.min(text.length, idx + query.length + 50);
+  return (start > 0 ? '…' : '') + text.substring(start, end) + (end < text.length ? '…' : '');
+}
+
 export default function ChannelAnalyticsSection() {
   const [channelInput, setChannelInput] = useState('');
   const [channelData, setChannelData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [videoLimit, setVideoLimit] = useState(100);
 
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInDescription, setSearchInDescription] = useState(true);
   const [sortBy, setSortBy] = useState('views_desc');
   const [filterDuration, setFilterDuration] = useState('all');
   const [viewMode, setViewMode] = useState('cards');
@@ -58,7 +71,7 @@ export default function ChannelAnalyticsSection() {
   // Reset to page 1 when search / sort / filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortBy, filterDuration, channelData]);
+  }, [searchTerm, searchInDescription, sortBy, filterDuration, channelData]);
 
   // Toggle individual description expand
   const toggleDescription = (id) => {
@@ -75,7 +88,7 @@ export default function ChannelAnalyticsSection() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchChannelAnalytics(channelInput.trim());
+      const data = await fetchChannelAnalytics(channelInput.trim(), videoLimit);
       setChannelData(data);
     } catch (err) {
       setError(err.message || 'Failed to analyze channel.');
@@ -117,7 +130,7 @@ export default function ChannelAnalyticsSection() {
         if (searchTerm.trim()) {
           const term = searchTerm.toLowerCase();
           const matchTitle = (video.title || '').toLowerCase().includes(term);
-          const matchDesc = (video.description || '').toLowerCase().includes(term);
+          const matchDesc = searchInDescription && (video.description || '').toLowerCase().includes(term);
           if (!matchTitle && !matchDesc) return false;
         }
 
@@ -211,6 +224,23 @@ export default function ChannelAnalyticsSection() {
                   <ClipboardPaste className="w-4 h-4" />
                 </button>
               </div>
+            </div>
+
+            {/* Video Limit Selector */}
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/80 dark:bg-dark-bg/80 border border-slate-700 dark:border-dark-border rounded-xl text-xs text-slate-300 w-full sm:w-auto shrink-0">
+              <Film className="w-3.5 h-3.5 text-brand-400" />
+              <span className="text-slate-400 font-medium">Fetch:</span>
+              <select
+                value={videoLimit}
+                onChange={(e) => setVideoLimit(Number(e.target.value))}
+                className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
+                title="Number of recent uploads to analyze"
+              >
+                <option value={50} className="bg-slate-900 text-white">Last 50 videos</option>
+                <option value={100} className="bg-slate-900 text-white">Last 100 videos</option>
+                <option value={200} className="bg-slate-900 text-white">Last 200 videos</option>
+                <option value={500} className="bg-slate-900 text-white">Last 500 videos (Max)</option>
+              </select>
             </div>
 
             <button
@@ -490,6 +520,28 @@ export default function ChannelAnalyticsSection() {
                 </select>
               </div>
             </div>
+
+            {/* Search Options Sub-Bar */}
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/60 mt-3">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={searchInDescription}
+                  onChange={(e) => setSearchInDescription(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded text-brand-500 accent-brand-500 cursor-pointer"
+                />
+                <span className="flex items-center gap-1.5 text-slate-300 font-medium">
+                  <FileText className="w-3.5 h-3.5 text-brand-400" />
+                  <span>Search through video descriptions</span>
+                </span>
+              </label>
+
+              {searchTerm.trim() && (
+                <span className="text-[11px] text-brand-300 font-medium">
+                  Found {filteredVideos.length} matching {filteredVideos.length === 1 ? 'video' : 'videos'}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Render Videos */}
@@ -514,6 +566,9 @@ export default function ChannelAnalyticsSection() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {pagedVideos.map((video) => {
                 const isExpanded = expandedDescriptions[video.id];
+                const descSnippet = searchTerm.trim() && searchInDescription 
+                  ? getHighlightSnippet(video.description, searchTerm)
+                  : null;
 
                 return (
                   <div
@@ -540,6 +595,17 @@ export default function ChannelAnalyticsSection() {
                       <h4 className="text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-brand-400 transition-colors">
                         {video.title}
                       </h4>
+
+                      {/* Description matched snippet badge */}
+                      {descSnippet && (
+                        <div className="mt-2 p-1.5 rounded-lg bg-brand-500/10 border border-brand-500/20 text-[11px] text-brand-300">
+                          <span className="font-semibold block text-[10px] uppercase tracking-wider text-brand-400 mb-0.5 flex items-center gap-1">
+                            <FileText className="w-3 h-3" />
+                            <span>Matched in description:</span>
+                          </span>
+                          <p className="italic line-clamp-2">"{descSnippet}"</p>
+                        </div>
+                      )}
 
                       {/* Video Stats Bar (Views, Likes, Comments) */}
                       <div className="mt-3 grid grid-cols-3 gap-2 py-2 px-2.5 rounded-xl bg-slate-800/50 dark:bg-dark-bg/60 border border-slate-800 text-center">
@@ -628,16 +694,27 @@ export default function ChannelAnalyticsSection() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 dark:divide-dark-border/60">
-                    {pagedVideos.map((video) => (
-                      <tr key={video.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="py-3 px-4 max-w-sm">
-                          <div className="font-semibold text-white line-clamp-1">
-                            {video.title}
-                          </div>
-                          <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                            {video.description}
-                          </div>
-                        </td>
+                    {pagedVideos.map((video) => {
+                      const descSnippet = searchTerm.trim() && searchInDescription 
+                        ? getHighlightSnippet(video.description, searchTerm)
+                        : null;
+
+                      return (
+                        <tr key={video.id} className="hover:bg-slate-800/30 transition-colors">
+                          <td className="py-3 px-4 max-w-sm">
+                            <div className="font-semibold text-white line-clamp-1">
+                              {video.title}
+                            </div>
+                            {descSnippet ? (
+                              <div className="mt-1 text-[11px] text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded inline-block max-w-md truncate">
+                                <span className="font-semibold text-[10px] uppercase">Desc match:</span> "{descSnippet}"
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                                {video.description}
+                              </div>
+                            )}
+                          </td>
                         <td className="py-3 px-4 font-mono font-bold text-blue-400">
                           {formatNumber(video.viewCount)}
                         </td>
@@ -662,7 +739,8 @@ export default function ChannelAnalyticsSection() {
                           </a>
                         </td>
                       </tr>
-                    ))}
+                    );
+                  })}
                   </tbody>
                 </table>
               </div>

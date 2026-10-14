@@ -11,9 +11,13 @@ import {
   Play, 
   Clock, 
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  History,
+  Bookmark,
+  Trash2
 } from 'lucide-react';
 import { extractPlaylistId } from '../utils/urlParser.js';
+import { useApp } from '../context/AppContext.jsx';
 
 export default function HeroSection({ 
   onCalculate, 
@@ -24,7 +28,7 @@ export default function HeroSection({
   setUrlInput 
 }) {
   const [inputError, setInputError] = useState('');
-  const [copiedPills, setCopiedPills] = useState(false);
+  const { recentSearches, removeRecentSearch, clearRecentSearches, bookmarks } = useApp();
 
   const handlePaste = async () => {
     try {
@@ -58,6 +62,12 @@ export default function HeroSection({
 
     setInputError('');
     onCalculate(urlInput.trim());
+  };
+
+  const handleQuickLoad = (urlOrId) => {
+    setUrlInput(urlOrId);
+    setInputError('');
+    onCalculate(urlOrId);
   };
 
   return (
@@ -187,6 +197,73 @@ export default function HeroSection({
               </button>
             </div>
           </div>
+
+          {/* Recent Searches & Bookmarks Tray */}
+          {(recentSearches.length > 0 || bookmarks.length > 0) && (
+            <div className="mt-5 p-3 rounded-xl bg-slate-900/50 dark:bg-dark-card/50 border border-slate-800/80 text-left">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <History className="w-3.5 h-3.5 text-brand-400" />
+                  <span>Recent & Saved Playlists</span>
+                </div>
+                {recentSearches.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearRecentSearches}
+                    className="text-[10px] text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1"
+                    title="Clear history"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Clear History</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {/* Bookmarks first */}
+                {bookmarks.map((bm) => (
+                  <button
+                    key={`bm-${bm.id}`}
+                    type="button"
+                    onClick={() => handleQuickLoad(bm.url || bm.id)}
+                    className="group px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-medium flex items-center gap-1.5 transition-all max-w-[200px]"
+                    title={`${bm.title} (${bm.totalVideosCount} videos)`}
+                  >
+                    <Bookmark className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                    <span className="truncate">{bm.title}</span>
+                  </button>
+                ))}
+
+                {/* Recent searches */}
+                {recentSearches.map((item) => (
+                  <div
+                    key={`recent-${item.id}`}
+                    className="group px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/70 text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-all max-w-[220px]"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLoad(item.url || item.id)}
+                      className="truncate text-left flex-1 hover:text-brand-300"
+                      title={`${item.title} (${item.totalVideosCount} videos)`}
+                    >
+                      {item.title}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeRecentSearch(item.id);
+                      }}
+                      className="text-slate-500 hover:text-red-400 ml-1 p-0.5 rounded"
+                      title="Remove from history"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Decorative Speed Visualization Pills */}

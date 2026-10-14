@@ -12,13 +12,16 @@ import {
   Check, 
   Sparkles,
   ExternalLink,
-  Layers
+  Layers,
+  Bookmark
 } from 'lucide-react';
 import { formatClockTime, formatDetailedDuration } from '../utils/calculations.js';
+import { useApp } from '../context/AppContext.jsx';
 
 export default function ResultsSummary({ playlistData, onReset, selectedSpeed = 1.0 }) {
   const [copied, setCopied] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const { toggleBookmark, isBookmarked } = useApp();
 
   if (!playlistData) return null;
 
@@ -174,6 +177,32 @@ export default function ResultsSummary({ playlistData, onReset, selectedSpeed = 
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
+          </button>
+
+          <button
+            onClick={() =>
+              toggleBookmark({
+                id: playlistId || title,
+                title,
+                channelTitle,
+                totalVideosCount,
+                totalDurationSeconds,
+                url: playlistId ? `https://www.youtube.com/playlist?list=${playlistId}` : '',
+              })
+            }
+            className={`px-3.5 py-2 text-xs font-medium border rounded-lg transition-all flex items-center gap-1.5 ${
+              isBookmarked(playlistId || title)
+                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                : 'text-slate-200 bg-slate-800 hover:bg-slate-700 dark:bg-dark-card dark:hover:bg-dark-cardHover border-slate-700 dark:border-dark-border'
+            }`}
+            title="Bookmark this playlist for quick access"
+          >
+            <Bookmark
+              className={`w-3.5 h-3.5 ${
+                isBookmarked(playlistId || title) ? 'fill-amber-400 text-amber-400' : ''
+              }`}
+            />
+            <span>{isBookmarked(playlistId || title) ? 'Bookmarked' : 'Bookmark'}</span>
           </button>
 
           <button

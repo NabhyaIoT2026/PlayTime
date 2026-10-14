@@ -10,9 +10,20 @@ import {
   Sparkles,
   Info,
   X,
-  Plus
+  Plus,
+  Download,
+  Copy,
+  ExternalLink,
+  Check
 } from 'lucide-react';
 import { calculateStudyPlan, formatClockTime, formatDetailedDuration } from '../utils/calculations.js';
+import { 
+  generateIcsContent, 
+  downloadFile, 
+  createGoogleCalendarUrl, 
+  generateStudyMarkdown 
+} from '../utils/calendarExport.js';
+import { useApp } from '../context/AppContext.jsx';
 
 // Format Date object to YYYY-MM-DD input string using local time
 function toInputDateString(date) {
@@ -31,9 +42,11 @@ export default function StudyPlanner({
   averageDurationSeconds, 
   selectedSpeed 
 }) {
+  const { playlistData } = useApp();
   const [dailyMinutes, setDailyMinutes] = useState(60); // default 1 hour / day
   const [startDate, setStartDate] = useState(() => toInputDateString(new Date()));
   const [targetDate, setTargetDate] = useState('');
+  const [copiedNotion, setCopiedNotion] = useState(false);
   const targetDateInputRef = useRef(null);
 
   const plan = calculateStudyPlan({
@@ -70,6 +83,56 @@ export default function StudyPlanner({
   const handleMatchCompletionDate = () => {
     if (plan.completionDate) {
       setTargetDate(toInputDateString(plan.completionDate));
+    }
+  };
+
+  // Export 1: Download .ics calendar file
+  const handleDownloadIcs = () => {
+    const courseTitle = playlistData?.title || 'Course';
+    const ics = generateIcsContent({
+      title: courseTitle,
+      startDate: startDate ? new Date(`${startDate}T00:00:00`) : new Date(),
+      daysNeeded: plan.daysNeeded,
+      dailyMinutes,
+      selectedSpeed,
+    });
+    const sanitizedFilename = `${courseTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}_study_schedule.ics`;
+    downloadFile(sanitizedFilename, ics);
+  };
+
+  // Export 2: Open Google Calendar in new tab
+  const handleOpenGoogleCalendar = () => {
+    const courseTitle = playlistData?.title || 'YouTube Course';
+    const url = createGoogleCalendarUrl({
+      title: courseTitle,
+      startDate: startDate ? new Date(`${startDate}T00:00:00`) : new Date(),
+      dailyMinutes,
+      selectedSpeed,
+      daysNeeded: plan.daysNeeded,
+    });
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  // Export 3: Copy Notion / Markdown Checklist
+  const handleCopyNotion = async () => {
+    const courseTitle = playlistData?.title || 'Course';
+    const md = generateStudyMarkdown({
+      playlistTitle: courseTitle,
+      videos: playlistData?.videos || [],
+      selectedSpeed,
+      plan: {
+        dailyMinutes,
+        daysNeeded: plan.daysNeeded,
+        completionDate: plan.completionDate,
+      },
+    });
+
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopiedNotion(true);
+      setTimeout(() => setCopiedNotion(false), 2500);
+    } catch {
+      // fallback
     }
   };
 
@@ -314,6 +377,53 @@ export default function StudyPlanner({
               </div>
             </div>
           )}
+
+          {/* Export Schedule to Calendar & Notes */}
+          <div className="p-4 rounded-xl bg-slate-800/40 dark:bg-dark-bg/60 border border-slate-700/80 dark:border-dark-border">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-300 block mb-2.5 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-brand-400" />
+              <span>Export & Sync Your Study Plan</span>
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {/* Button 1: Download .ics */}
+              <button
+                type="button"
+                onClick={handleDownloadIcs}
+                className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-xs font-semibold text-slate-200 hover:text-white flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                title="Download iCal (.ics) file compatible with Apple Calendar, Outlook, and Google Calendar"
+              >
+                <Download className="w-3.5 h-3.5 text-brand-400" />
+                <span>iCal / .ics File</span>
+              </button>
+
+              {/* Button 2: Google Calendar */}
+              <button
+                type="button"
+                onClick={handleOpenGoogleCalendar}
+                className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-xs font-semibold text-slate-200 hover:text-white flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                title="Create event directly in Google Calendar"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Google Calendar</span>
+              </button>
+
+              {/* Button 3: Notion / Markdown */}
+              <button
+                type="button"
+                onClick={handleCopyNotion}
+                className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-xs font-semibold text-slate-200 hover:text-white flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                title="Copy formatted markdown checklist ready to paste into Notion, Obsidian, or Notes"
+              >
+                {copiedNotion ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-amber-400" />
+                )}
+                <span>{copiedNotion ? 'Copied MD!' : 'Notion / MD'}</span>
+              </button>
+            </div>
+          </div>
 
           {/* Realistic Disclaimer */}
           <p className="text-[11px] text-slate-400 italic">

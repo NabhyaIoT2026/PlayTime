@@ -21,27 +21,35 @@ Playtime is a full-stack, production-quality web application built with **React 
 - **📊 Time-Saving Comparison Chart:**
   - Interactive Recharts bar chart highlighting the compression curve across standard speeds.
   - Automatically highlights the active speed and reveals saved hours on hover.
-- **📅 "Plan Your Watch Time" Study Planner:**
+- **📅 "Plan Your Watch Time" Study Planner & Calendar Sync:**
   - Configure daily available study/viewing time (30 minutes to 12 hours) via interactive slider and quick chips.
-  - Computes total days needed to finish the playlist.
-  - Estimates daily videos target and completion calendar date.
-  - Optional target deadline date analyzer with feasibility indicator (*"Ahead of schedule"*, *"Pace adjustment needed"*, or *"Unrealistic deadline"*).
-  - Clear mathematical estimate disclaimers.
+  - Computes total days needed to finish the playlist, daily video targets, and completion date.
+  - Optional target deadline analyzer with feasibility indicator (*"Ahead of schedule"*, *"Pace adjustment needed"*).
+  - **iCal / `.ics` Export:** 1-click download of `.ics` calendar files compatible with Apple Calendar, Google Calendar, and Outlook.
+  - **Google Calendar Sync:** 1-click direct link to add daily recurring study blocks to Google Calendar.
+  - **Notion & Markdown Export:** Formatted checklist export ready to paste into Notion or Obsidian with checkboxes, durations, and watch links.
+- **✅ Watch Progress Tracker & Custom Range Selector:**
+  - Interactive "Mark as Watched" checkboxes directly on video cards and table rows, automatically saved to `localStorage`.
+  - Dynamic completion progress bar showing percentage watched and remaining hours at active playback multiplier.
+  - **Custom Range Slicing:** Calculate and filter specific slices (e.g. *Episode #5 to #20*) with instant subset duration analytics.
+  - Filter by *Watched*, *Unwatched*, or duration lengths.
+- **🗃️ Search History & Bookmarking:**
+  - Remembers recent playlist searches with 1-click instant reloading.
+  - Star / Bookmark favorite courses for quick access.
 - **🗂️ Interactive Video Library:**
   - Switchable between responsive **Card View** and **Table View**.
   - Search by video title or channel.
-  - Filter by duration: *All*, *Short (< 10 min)*, *Medium (10–30 min)*, *Long (> 30 min)*, and *Unavailable*.
+  - Filter by duration: *All*, *Unwatched*, *Watched*, *Short (< 10 min)*, *Medium (10–30 min)*, *Long (> 30 min)*, and *Unavailable*.
   - Sort by playlist position, duration, or alphabetical title.
   - Real-time adjusted duration per video at the active playback speed.
-  - Identifies and flags private, deleted, or region-restricted videos without fabricating data.
 - **🛡️ Resilient Offline & Demo Capabilities:**
-  - **Sample Demo Mode:** One-click exploration of a curated 18-episode Full-Stack Development Course with sample data banner.
-  - **Manual Duration Calculator:** Enter custom playlist metrics directly (Hours/Minutes or Video Count × Average Duration) without needing a URL or YouTube API key.
-  - **Graceful Error Handling:** Informs users when API keys are unconfigured, quotas are reached, or playlists are private, offering instant fallback paths.
+  - **Sample Demo Mode:** One-click exploration of a curated 18-episode Full-Stack Development Course.
+  - **Manual Duration Calculator:** Enter custom playlist metrics directly without needing a URL or YouTube API key.
 - **📤 Export & Sharing:**
   - Copy formatted summary to clipboard with a single click.
   - Native Web Share API integration with clipboard fallback.
   - Export complete video list with durations and links to **CSV**.
+  - Export study schedule to **.ics** and **Notion Markdown**.
 - **🎨 UI / UX Aesthetics:**
   - Dark mode default (`#0a0c10`) with rich YouTube red (`#ff0033`) glowing accents.
   - Seamless Light / Dark theme toggle persisted in `localStorage`.
@@ -199,6 +207,9 @@ npm test
 - ✅ Duration formatters for clock format and multi-day long playlists
 - ✅ Speed calculations (`0.75×`, `1.0×`, `1.5×`, `2.0×`, `2.5×`)
 - ✅ Zero-duration and division-by-zero safety
+- ✅ RFC 5545 iCalendar (`.ics`) generation and daily recurring schedules
+- ✅ Google Calendar 1-click web template URL generation
+- ✅ Notion and Markdown formatted checklist generation with duration tags
 
 ---
 

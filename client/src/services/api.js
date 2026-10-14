@@ -102,13 +102,13 @@ export async function fetchPlaylist(urlOrId) {
  * @param {string} urlOrHandle
  * @returns {Promise<object>}
  */
-export async function fetchChannelAnalytics(urlOrHandle) {
+export async function fetchChannelAnalytics(urlOrHandle, maxVideos = 100) {
   const encoded = encodeURIComponent(urlOrHandle.trim());
   let res;
 
   try {
-    res = await fetch(`${API_BASE}/channel?url=${encoded}`, {
-      signal: AbortSignal.timeout(25000),
+    res = await fetch(`${API_BASE}/channel?url=${encoded}&maxVideos=${maxVideos}`, {
+      signal: AbortSignal.timeout(35000), // generous timeout for fetching multi-page channel videos
     });
   } catch (err) {
     if (err.name === 'TimeoutError') {
