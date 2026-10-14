@@ -25,9 +25,16 @@ import {
   ChevronRight as ChevronRightIcon,
   FileSearch,
   FileText,
+  CheckCircle2,
+  Circle,
+  CheckSquare,
+  RotateCcw,
+  Clock,
+  ListChecks,
 } from 'lucide-react';
 import { fetchChannelAnalytics, getSampleChannel } from '../services/api.js';
-import { formatClockTime } from '../utils/calculations.js';
+import { formatClockTime, formatDetailedDuration } from '../utils/calculations.js';
+import { useApp } from '../context/AppContext.jsx';
 
 // Number formatter: 1,400,000 -> 1.4M
 function formatNumber(num) {
@@ -50,6 +57,13 @@ function getHighlightSnippet(text, query) {
 }
 
 export default function ChannelAnalyticsSection() {
+  const {
+    getWatchedVideos,
+    toggleWatchedVideo,
+    markAllWatched,
+    clearWatchedVideos,
+  } = useApp();
+
   const [channelInput, setChannelInput] = useState('');
   const [channelData, setChannelData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +81,35 @@ export default function ChannelAnalyticsSection() {
   // Pagination
   const VIDEOS_PER_PAGE = 8;
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Watch Progress — keyed by channel ID
+  const channelId = channelData?.channel?.id || 'channel_default';
+  const watchedList = getWatchedVideos(channelId);
+
+  // Watched Statistics
+  const watchedStats = useMemo(() => {
+    if (!channelData?.videos) return null;
+    const videos = channelData.videos;
+    let watchedSeconds = 0;
+    let watchedCount = 0;
+    videos.forEach((v) => {
+      if (watchedList.includes(v.id)) {
+        watchedCount++;
+        watchedSeconds += v.durationSeconds || 0;
+      }
+    });
+    const totalSec = videos.reduce((acc, v) => acc + (v.durationSeconds || 0), 0);
+    const remainingSec = Math.max(0, totalSec - watchedSeconds);
+    const percent = videos.length > 0 ? Math.round((watchedCount / videos.length) * 100) : 0;
+    return {
+      watchedCount,
+      totalCount: videos.length,
+      watchedSeconds,
+      remainingSec,
+      percent,
+      remainingClock: formatClockTime(remainingSec),
+    };
+  }, [channelData, watchedList]);
 
   // Reset to page 1 when search / sort / filter changes
   useEffect(() => {
@@ -160,7 +203,8 @@ export default function ChannelAnalyticsSection() {
         if (sortBy === 'duration_desc') return (b.durationSeconds || 0) - (a.durationSeconds || 0);
         return 0;
       });
-  }, [channelData, searchTerm, sortBy, filterDuration]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelData, searchTerm, searchInDescription, sortBy, filterDuration]);
 
   // Pagination derived values
   const totalPages = Math.max(1, Math.ceil(filteredVideos.length / VIDEOS_PER_PAGE));
@@ -353,6 +397,71 @@ export default function ChannelAnalyticsSection() {
               </div>
             </div>
           </div>
+
+          {/* Watch Progress Tracker */}
+          {watchedStats && (
+            <div className="p-5 rounded-2xl bg-slate-900/90 dark:bg-dark-card/90 border border-slate-800 dark:border-dark-border shadow-md">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-400">
+                    <ListChecks className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Watch Progress</h4>
+                    <p className="text-[11px] text-slate-400">
+                      {watchedStats.watchedCount} of {watchedStats.totalCount} videos watched
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => markAllWatched(channelId, channelData.videos.map((v) => v.id))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20 transition-all"
+                  >
+                    <CheckSquare className="w-3.5 h-3.5" />
+                    Mark All Watched
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => clearWatchedVideos(channelId)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="relative w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-3">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+                  style={{ width: `${watchedStats.percent}%` }}
+                />
+              </div>
+
+              {/* Stats Row */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/40 text-center">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Watched</span>
+                  <span className="text-base font-extrabold text-emerald-400">{watchedStats.percent}%</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/40 text-center">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Videos Left</span>
+                  <span className="text-base font-extrabold text-white">
+                    {watchedStats.totalCount - watchedStats.watchedCount}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/40 text-center">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Time Left</span>
+                  <span className="text-base font-extrabold text-amber-400">{watchedStats.remainingClock}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 4 Video Aggregated Analytics Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -570,10 +679,16 @@ export default function ChannelAnalyticsSection() {
                   ? getHighlightSnippet(video.description, searchTerm)
                   : null;
 
+                const isWatched = watchedList.includes(video.id);
+
                 return (
                   <div
                     key={video.id}
-                    className="p-4 rounded-2xl bg-slate-900/90 dark:bg-dark-card/90 border border-slate-800 dark:border-dark-border hover:border-slate-700 shadow-lg flex flex-col justify-between transition-all group"
+                    className={`p-4 rounded-2xl border shadow-lg flex flex-col justify-between transition-all group ${
+                      isWatched
+                        ? 'bg-emerald-950/20 border-emerald-800/40 dark:border-emerald-700/30'
+                        : 'bg-slate-900/90 dark:bg-dark-card/90 border-slate-800 dark:border-dark-border hover:border-slate-700'
+                    }`}
                   >
                     <div>
                       {/* Thumbnail & Duration */}
@@ -583,18 +698,43 @@ export default function ChannelAnalyticsSection() {
                             src={video.thumbnail}
                             alt={video.title}
                             loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className={`w-full h-full object-cover transition-all duration-300 ${
+                              isWatched ? 'opacity-50 grayscale' : 'group-hover:scale-105'
+                            }`}
                           />
                         )}
                         <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/85 backdrop-blur-sm text-[11px] font-mono font-bold text-white">
                           {formatClockTime(video.durationSeconds)}
                         </div>
+                        {isWatched && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="p-2 rounded-full bg-emerald-500/80 backdrop-blur-sm">
+                              <CheckCircle2 className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Video Title */}
-                      <h4 className="text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-brand-400 transition-colors">
-                        {video.title}
-                      </h4>
+                      {/* Video Title + Watch Toggle */}
+                      <div className="flex items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleWatchedVideo(channelId, video.id)}
+                          className={`shrink-0 mt-0.5 transition-colors ${
+                            isWatched ? 'text-emerald-400' : 'text-slate-600 hover:text-slate-400'
+                          }`}
+                          title={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
+                        >
+                          {isWatched
+                            ? <CheckCircle2 className="w-4 h-4" />
+                            : <Circle className="w-4 h-4" />}
+                        </button>
+                        <h4 className={`text-sm font-bold line-clamp-2 leading-snug transition-colors ${
+                          isWatched ? 'text-slate-400 line-through decoration-slate-600' : 'text-white group-hover:text-brand-400'
+                        }`}>
+                          {video.title}
+                        </h4>
+                      </div>
 
                       {/* Description matched snippet badge */}
                       {descSnippet && (
@@ -685,6 +825,7 @@ export default function ChannelAnalyticsSection() {
                 <table className="w-full text-left text-xs sm:text-sm text-slate-300">
                   <thead className="bg-slate-800/70 dark:bg-dark-bg/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800">
                     <tr>
+                      <th className="py-3 px-4 w-8"></th>
                       <th className="py-3 px-4">Video Title</th>
                       <th className="py-3 px-4">Views</th>
                       <th className="py-3 px-4">Likes</th>
@@ -695,14 +836,34 @@ export default function ChannelAnalyticsSection() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 dark:divide-dark-border/60">
                     {pagedVideos.map((video) => {
-                      const descSnippet = searchTerm.trim() && searchInDescription 
+                      const descSnippet = searchTerm.trim() && searchInDescription
                         ? getHighlightSnippet(video.description, searchTerm)
                         : null;
+                      const isWatchedRow = watchedList.includes(video.id);
 
                       return (
-                        <tr key={video.id} className="hover:bg-slate-800/30 transition-colors">
+                        <tr key={video.id} className={`transition-colors ${
+                          isWatchedRow ? 'bg-emerald-950/20' : 'hover:bg-slate-800/30'
+                        }`}>
+                          {/* Watch toggle */}
+                          <td className="py-3 px-4">
+                            <button
+                              type="button"
+                              onClick={() => toggleWatchedVideo(channelId, video.id)}
+                              className={`transition-colors ${
+                                isWatchedRow ? 'text-emerald-400' : 'text-slate-600 hover:text-slate-400'
+                              }`}
+                              title={isWatchedRow ? 'Mark unwatched' : 'Mark watched'}
+                            >
+                              {isWatchedRow
+                                ? <CheckCircle2 className="w-4 h-4" />
+                                : <Circle className="w-4 h-4" />}
+                            </button>
+                          </td>
                           <td className="py-3 px-4 max-w-sm">
-                            <div className="font-semibold text-white line-clamp-1">
+                            <div className={`font-semibold line-clamp-1 ${
+                              isWatchedRow ? 'text-slate-400 line-through decoration-slate-600' : 'text-white'
+                            }`}>
                               {video.title}
                             </div>
                             {descSnippet ? (
@@ -715,32 +876,32 @@ export default function ChannelAnalyticsSection() {
                               </div>
                             )}
                           </td>
-                        <td className="py-3 px-4 font-mono font-bold text-blue-400">
-                          {formatNumber(video.viewCount)}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-bold text-emerald-400">
-                          {formatNumber(video.likeCount)}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-bold text-purple-400">
-                          {formatNumber(video.commentCount)}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-300">
-                          {formatClockTime(video.durationSeconds)}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <a
-                            href={`https://www.youtube.com/watch?v=${video.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-brand-400 hover:text-brand-300 font-semibold text-xs"
-                          >
-                            <span>Watch</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <td className="py-3 px-4 font-mono font-bold text-blue-400">
+                            {formatNumber(video.viewCount)}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-emerald-400">
+                            {formatNumber(video.likeCount)}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-purple-400">
+                            {formatNumber(video.commentCount)}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-300">
+                            {formatClockTime(video.durationSeconds)}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <a
+                              href={`https://www.youtube.com/watch?v=${video.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-brand-400 hover:text-brand-300 font-semibold text-xs"
+                            >
+                              <span>Watch</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
